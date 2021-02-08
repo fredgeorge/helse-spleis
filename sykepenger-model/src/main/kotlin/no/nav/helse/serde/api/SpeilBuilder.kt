@@ -5,6 +5,7 @@ import no.nav.helse.hendelser.Periode
 import no.nav.helse.hendelser.Simulering
 import no.nav.helse.hendelser.Vilkårsgrunnlag
 import no.nav.helse.person.*
+import no.nav.helse.serde.api.dto.Sykdomshistorikk2
 import no.nav.helse.serde.mapping.SpeilDagtype
 import no.nav.helse.serde.reflection.ArbeidsgiverReflect
 import no.nav.helse.serde.reflection.PersonReflect
@@ -136,13 +137,18 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
         private val inntektshistorikk: MutableMap<String, InntektshistorikkVol2>,
         private val nøkkeldataOmInntekter: MutableList<NøkkeldataOmInntekt>
     ) : PersonVisitor {
+        private val sykdomshistorikkelementer = mutableMapOf<UUID, MutableMap<String, Any>>()
+        private val sykdomshistorikkelementerDTOs = mutableMapOf<UUID, Sykdomshistorikk2>()
+        private val utbetalingberegning = mutableMapOf<UUID, Pair<UUID, LocalDateTime>>()
+
         init {
             arbeidsgiverMap.putAll(ArbeidsgiverReflect(arbeidsgiver).toSpeilMap())
         }
 
         private val vedtaksperioder = mutableListOf<VedtaksperiodeDTOBase>()
         private val gruppeIder = mutableMapOf<Vedtaksperiode, UUID>()
-        private val utbetalinger = mutableListOf<Utbetaling>()
+        private val utbetalinger = mutableMapOf<UUID, MutableList<Utbetaling>>()
+        private val utbetalingerDTOs = mutableMapOf<UUID, MutableList<Sykdomshistorikk2.UtbetalingDTO>>()
         var inntekter = mutableListOf<Inntektshistorikk.Inntektsendring>()
 
         override fun preVisitInntekthistorikkVol2(inntektshistorikk: InntektshistorikkVol2) {
@@ -165,15 +171,16 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
             forbrukteSykedager: Int?,
             gjenståendeSykedager: Int?
         ) {
-            utbetalinger.add(utbetaling)
+            utbetalinger.getOrPut(beregningId) { mutableListOf() }.add(utbetaling)
+            val utbetalingstidslinjedager = mutableListOf<UtbetalingstidslinjedagDTO>()
+            pushState(UtbetalingstidslinjeState(utbetalingstidslinjedager, mutableListOf()))
+            utbetalingerDTOs.getOrPut(beregningId) { mutableListOf() }.add(Sykdomshistorikk2.UtbetalingDTO(utbetalingstidslinje = utbetalingstidslinjedager))
         }
 
-        override fun preVisitHendelseSykdomstidslinje(
-            tidslinje: Sykdomstidslinje,
-            hendelseId: UUID?,
-            tidsstempel: LocalDateTime
-        ) {
-            hendelseId?.also { hendelsePerioder[it] = tidslinje.periode()!! }
+        override fun preVisitSykdomshistorikkElement(element: Sykdomshistorikk.Element, id: UUID, hendelseId: UUID?, tidsstempel: LocalDateTime) {
+            val element = Sykdomshistorikk2()
+            pushState(SykdomshistorikkElementState(id, sykdomshistorikkelementer, element))
+            sykdomshistorikkelementerDTOs[id] = element
         }
 
         override fun preVisitPerioder(vedtaksperioder: List<Vedtaksperiode>) {
@@ -219,7 +226,7 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
                     gruppeId = gruppeIder.getValue(vedtaksperiode),
                     fødselsnummer = fødselsnummer,
                     inntekter = inntekter,
-                    utbetalinger = utbetalinger,
+                    utbetalinger = utbetalinger.flatMap { it.value },
                     hendelseIder = hendelseIder,
                     periode = periode,
                     nøkkeldataOmInntekter = nøkkeldataOmInntekter
@@ -227,13 +234,61 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
             )
         }
 
+        override fun visitUtbetalingstidslinjeberegning(id: UUID, tidsstempel: LocalDateTime, sykdomshistorikkElementId: UUID) {
+            utbetalingberegning[id] = sykdomshistorikkElementId to tidsstempel
+        }
+
         override fun postVisitArbeidsgiver(
             arbeidsgiver: Arbeidsgiver,
             id: UUID,
             organisasjonsnummer: String
         ) {
-            val arbeidsgiverDTO = arbeidsgiverMap.mapTilArbeidsgiverDto()
+            utbetalingberegning.forEach { (beregningId, beregningInfo) ->
+                val utbetalingerForBeregning = utbetalingerDTOs[beregningId] ?: emptyList()
+                val (sykdomshistorikkelementId, tidsstempel) = beregningInfo
+
+                sykdomshistorikkelementerDTOs.getValue(sykdomshistorikkelementId).also {
+                    it.utbetalinger.addAll(utbetalingerForBeregning)
+                }
+            }
+            val tidslinjer = sykdomshistorikkelementerDTOs.values.filter { it.utbetalinger.isNotEmpty() }
+            val arbeidsgiverDTO = arbeidsgiverMap.mapTilArbeidsgiverDto(tidslinjer)
             arbeidsgivere.add(arbeidsgiverDTO)
+            popState()
+        }
+    }
+
+    private inner class SykdomshistorikkElementState(
+        id: UUID,
+        sykdomshistorikkelementer: MutableMap<UUID, MutableMap<String, Any>>,
+        var resultat: Sykdomshistorikk2
+    ) : PersonVisitor {
+        private val sykdomshistorikkElementMap = mutableMapOf<String, Any>("id" to id)
+
+        init {
+            sykdomshistorikkelementer[id] = sykdomshistorikkElementMap
+        }
+
+        override fun preVisitHendelseSykdomstidslinje(
+            tidslinje: Sykdomstidslinje,
+            hendelseId: UUID?,
+            tidsstempel: LocalDateTime
+        ) {
+            hendelseId?.also { hendelsePerioder[it] = tidslinje.periode()!! }
+            val dager = mutableListOf<SykdomstidslinjedagDTO>()
+            sykdomshistorikkElementMap["hendelsetidslinje"] = dager
+            resultat.hendelsetidslinje = dager
+            pushState(SykdomstidslinjeState(dager))
+        }
+
+        override fun preVisitBeregnetSykdomstidslinje(tidslinje: Sykdomstidslinje) {
+            val dager = mutableListOf<SykdomstidslinjedagDTO>()
+            sykdomshistorikkElementMap["sykdomstidslinje"] = dager
+            resultat.beregnettidslinje = dager
+            pushState(SykdomstidslinjeState(dager))
+        }
+
+        override fun postVisitSykdomshistorikkElement(element: Sykdomshistorikk.Element, id: UUID, hendelseId: UUID?, tidsstempel: LocalDateTime) {
             popState()
         }
     }

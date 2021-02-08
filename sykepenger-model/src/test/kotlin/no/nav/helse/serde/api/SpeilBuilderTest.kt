@@ -23,6 +23,21 @@ import java.util.*
 
 
 class SpeilBuilderTest {
+
+    @Test
+    fun `happy case`(){
+        val (person, hendelser) = person()
+        val personDTO = serializePersonForSpeil(person, hendelser)
+
+        assertEquals(1, personDTO.arbeidsgivere.first().tidslinjer.size)
+        val tidslinje = personDTO.arbeidsgivere.first().tidslinjer.first()
+        assertEquals(31, tidslinje.beregnettidslinje.size)
+        assertEquals(16, tidslinje.hendelsetidslinje.size)
+        assertEquals(1, tidslinje.utbetalinger.size)
+        assertEquals(31, tidslinje.utbetalinger.first().utbetalingstidslinje.size)
+
+    }
+
     @Test
     fun `dager før skjæringstidspunkt og etter sisteSykedag skal kuttes vekk fra utbetalingstidslinje`() {
         val (person, hendelser) = person()
