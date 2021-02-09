@@ -2,7 +2,7 @@ package no.nav.helse.serde.api
 
 import no.nav.helse.person.ForlengelseFraInfotrygd
 import no.nav.helse.person.Periodetype
-import no.nav.helse.serde.api.dto.Sykdomshistorikk2
+import no.nav.helse.serde.api.dto.UtbetalingshistorikkElementDTO
 import no.nav.helse.serde.mapping.SpeilDagtype
 import no.nav.helse.serde.mapping.SpeilKildetype
 import java.time.LocalDate
@@ -28,7 +28,7 @@ data class ArbeidsgiverDTO(
     val organisasjonsnummer: String,
     val id: UUID,
     val vedtaksperioder: List<VedtaksperiodeDTOBase>,
-    val tidslinjer: List<Sykdomshistorikk2>
+    val utbetalingshistorikk: List<UtbetalingshistorikkElementDTO>
 )
 
 

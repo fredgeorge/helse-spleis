@@ -5,7 +5,8 @@ import no.nav.helse.hendelser.Periode
 import no.nav.helse.hendelser.Simulering
 import no.nav.helse.hendelser.Vilkårsgrunnlag
 import no.nav.helse.person.*
-import no.nav.helse.serde.api.dto.Sykdomshistorikk2
+import no.nav.helse.serde.api.SpeilBuilder.Utbetalingshistorikkladd.Companion.tilDto
+import no.nav.helse.serde.api.dto.UtbetalingshistorikkElementDTO
 import no.nav.helse.serde.mapping.SpeilDagtype
 import no.nav.helse.serde.reflection.ArbeidsgiverReflect
 import no.nav.helse.serde.reflection.PersonReflect
@@ -138,7 +139,7 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
         private val nøkkeldataOmInntekter: MutableList<NøkkeldataOmInntekt>
     ) : PersonVisitor {
         private val sykdomshistorikkelementer = mutableMapOf<UUID, MutableMap<String, Any>>()
-        private val sykdomshistorikkelementerDTOs = mutableMapOf<UUID, Sykdomshistorikk2>()
+        private val sykdomshistorikkelementerDTOs = mutableMapOf<UUID, Utbetalingshistorikkladd>()
         private val utbetalingberegning = mutableMapOf<UUID, Pair<UUID, LocalDateTime>>()
 
         init {
@@ -148,7 +149,7 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
         private val vedtaksperioder = mutableListOf<VedtaksperiodeDTOBase>()
         private val gruppeIder = mutableMapOf<Vedtaksperiode, UUID>()
         private val utbetalinger = mutableMapOf<UUID, MutableList<Utbetaling>>()
-        private val utbetalingerDTOs = mutableMapOf<UUID, MutableList<Sykdomshistorikk2.UtbetalingDTO>>()
+        private val utbetalingerDTOs = mutableMapOf<UUID, MutableList<Utbetalingshistorikkladd.UtbetalingKladd>>()
         var inntekter = mutableListOf<Inntektshistorikk.Inntektsendring>()
 
         override fun preVisitInntekthistorikkVol2(inntektshistorikk: InntektshistorikkVol2) {
@@ -174,13 +175,14 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
             utbetalinger.getOrPut(beregningId) { mutableListOf() }.add(utbetaling)
             val utbetalingstidslinjedager = mutableListOf<UtbetalingstidslinjedagDTO>()
             pushState(UtbetalingstidslinjeState(utbetalingstidslinjedager, mutableListOf()))
-            utbetalingerDTOs.getOrPut(beregningId) { mutableListOf() }.add(Sykdomshistorikk2.UtbetalingDTO(utbetalingstidslinje = utbetalingstidslinjedager))
+            utbetalingerDTOs.getOrPut(beregningId) { mutableListOf() }
+                .add(Utbetalingshistorikkladd.UtbetalingKladd(utbetalingstidslinje = utbetalingstidslinjedager))
         }
 
         override fun preVisitSykdomshistorikkElement(element: Sykdomshistorikk.Element, id: UUID, hendelseId: UUID?, tidsstempel: LocalDateTime) {
-            val element = Sykdomshistorikk2()
-            pushState(SykdomshistorikkElementState(id, sykdomshistorikkelementer, element))
-            sykdomshistorikkelementerDTOs[id] = element
+            val kladd = Utbetalingshistorikkladd()
+            pushState(SykdomshistorikkElementState(id, sykdomshistorikkelementer, kladd))
+            sykdomshistorikkelementerDTOs[id] = kladd
         }
 
         override fun preVisitPerioder(vedtaksperioder: List<Vedtaksperiode>) {
@@ -252,7 +254,7 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
                 }
             }
             val tidslinjer = sykdomshistorikkelementerDTOs.values.filter { it.utbetalinger.isNotEmpty() }
-            val arbeidsgiverDTO = arbeidsgiverMap.mapTilArbeidsgiverDto(tidslinjer)
+            val arbeidsgiverDTO = arbeidsgiverMap.mapTilArbeidsgiverDto(tidslinjer.tilDto())
             arbeidsgivere.add(arbeidsgiverDTO)
             popState()
         }
@@ -261,7 +263,7 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
     private inner class SykdomshistorikkElementState(
         id: UUID,
         sykdomshistorikkelementer: MutableMap<UUID, MutableMap<String, Any>>,
-        var resultat: Sykdomshistorikk2
+        var resultat: Utbetalingshistorikkladd
     ) : PersonVisitor {
         private val sykdomshistorikkElementMap = mutableMapOf<String, Any>("id" to id)
 
@@ -747,5 +749,26 @@ internal class SpeilBuilder(person: Person, private val hendelser: List<Hendelse
         lateinit var skjæringstidspunkt: LocalDate
         var avviksprosent: Double? = null
     }
+
+    private class Utbetalingshistorikkladd(
+        var hendelsetidslinje: MutableList<SykdomstidslinjedagDTO> = mutableListOf(),
+        var beregnettidslinje: MutableList<SykdomstidslinjedagDTO> = mutableListOf(),
+        var utbetalinger: MutableList<UtbetalingKladd> = mutableListOf()
+    ) {
+        data class UtbetalingKladd(
+            val utbetalingstidslinje: List<UtbetalingstidslinjedagDTO>
+        )
+
+        companion object {
+            fun List<Utbetalingshistorikkladd>.tilDto() = this.map {
+                UtbetalingshistorikkElementDTO(
+                    hendelsetidslinje = it.hendelsetidslinje,
+                    beregnettidslinje = it.beregnettidslinje,
+                    utbetalinger = it.utbetalinger.map { utbetaling -> UtbetalingshistorikkElementDTO.UtbetalingDTO(utbetaling.utbetalingstidslinje) }
+                )
+            }
+        }
+    }
+
 }
 

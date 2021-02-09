@@ -29,8 +29,8 @@ class SpeilBuilderTest {
         val (person, hendelser) = person()
         val personDTO = serializePersonForSpeil(person, hendelser)
 
-        assertEquals(1, personDTO.arbeidsgivere.first().tidslinjer.size)
-        val tidslinje = personDTO.arbeidsgivere.first().tidslinjer.first()
+        assertEquals(1, personDTO.arbeidsgivere.first().utbetalingshistorikk.size)
+        val tidslinje = personDTO.arbeidsgivere.first().utbetalingshistorikk.first()
         assertEquals(31, tidslinje.beregnettidslinje.size)
         assertEquals(16, tidslinje.hendelsetidslinje.size)
         assertEquals(1, tidslinje.utbetalinger.size)

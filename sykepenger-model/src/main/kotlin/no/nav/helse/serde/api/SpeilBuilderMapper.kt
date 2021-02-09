@@ -13,7 +13,7 @@ import no.nav.helse.person.Inntektshistorikk.Inntektsendring.Companion.sykepenge
 import no.nav.helse.person.Periodetype
 import no.nav.helse.person.TilstandType
 import no.nav.helse.serde.api.SimuleringsdataDTO.*
-import no.nav.helse.serde.api.dto.Sykdomshistorikk2
+import no.nav.helse.serde.api.dto.UtbetalingshistorikkElementDTO
 import no.nav.helse.utbetalingslinjer.Utbetaling
 import no.nav.helse.utbetalingstidslinje.Alder
 import no.nav.helse.utbetalingstidslinje.Begrunnelse
@@ -84,11 +84,11 @@ internal fun MutableMap<String, Any?>.mapTilPersonDto() =
         )
     }
 
-internal fun MutableMap<String, Any?>.mapTilArbeidsgiverDto(tidslinjer: List<Sykdomshistorikk2>) = ArbeidsgiverDTO(
+internal fun MutableMap<String, Any?>.mapTilArbeidsgiverDto(utbetalingshistorikk: List<UtbetalingshistorikkElementDTO>) = ArbeidsgiverDTO(
     organisasjonsnummer = this["organisasjonsnummer"] as String,
     id = this["id"] as UUID,
     vedtaksperioder = this["vedtaksperioder"].cast(),
-    tidslinjer = tidslinjer
+    utbetalingshistorikk = utbetalingshistorikk
 )
 
 internal fun MutableMap<String, Any?>.mapTilVedtaksperiodeDto(
