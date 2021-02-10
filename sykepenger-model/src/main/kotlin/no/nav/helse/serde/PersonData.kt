@@ -583,6 +583,8 @@ internal data class PersonData(
                 TilstandType.AVVENTER_SØKNAD_UFERDIG_FORLENGELSE -> Vedtaksperiode.AvventerSøknadUferdigForlengelse
                 TilstandType.AVVENTER_UFERDIG_FORLENGELSE -> Vedtaksperiode.AvventerUferdigForlengelse
                 TilstandType.AVVENTER_ARBEIDSGIVERE -> Vedtaksperiode.AvventerArbeidsgivere
+                TilstandType.AVVENTER_REVURDERING -> Vedtaksperiode.AvventerRevurdering
+                else -> TODO()
             }
 
             data class DataForVilkårsvurderingData(

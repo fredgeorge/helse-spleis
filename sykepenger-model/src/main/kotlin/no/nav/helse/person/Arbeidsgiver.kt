@@ -493,6 +493,26 @@ internal class Arbeidsgiver private constructor(
         return results
     }
 
+    internal fun revurdering/*TODO RENAME*/(vedtaksperiode: Vedtaksperiode, hendelse: ArbeidstakerHendelse) {
+        val revurdering = Revurdering(hendelse)
+        vedtaksperioder.firstOrNull { it.avventerRevurdering(vedtaksperiode, revurdering) }
+    }
+
+    internal fun revurder(vedtaksperiode: Vedtaksperiode, hendelse: ArbeidstakerHendelse) {
+        val sisteUtbetalte = vedtaksperioder.sisteSammenhengedeUtbetaling(vedtaksperiode)
+        sisteUtbetalte?.revurder(hendelse)
+        // Finn min ferskeste utbetalte periode
+        // Sett den i avventer_revurdering
+        // Sett evt. uferdige perioder foran i en ventestate //AVVENTER_UFERDIG_FORLENGELSE
+    }
+
+    private fun List<Vedtaksperiode>.sisteSammenhengedeUtbetaling(vedtaksperiode: Vedtaksperiode) =
+        this.filter { it.sammeArbeidsgiverPeriodeOgUtbetalt(vedtaksperiode)}.maxOrNull()
+
+    internal fun blokkeresRevurdering(vedtaksperiode: Vedtaksperiode) =
+        vedtaksperioder.any { it.blokkererRevurdering(vedtaksperiode) }
+
+
     internal fun tidligereOgEttergølgende2(segSelv: Vedtaksperiode): VedtaksperioderFilter {
         val tidligereOgEttergølgende1 = tidligereOgEttergølgende(segSelv)
         return fun(vedtaksperiode: Vedtaksperiode) = vedtaksperiode in tidligereOgEttergølgende1
@@ -541,6 +561,13 @@ internal class Arbeidsgiver private constructor(
     }
 
     internal class GjenopptaBehandling(private val hendelse: ArbeidstakerHendelse) :
+        ArbeidstakerHendelse(hendelse) {
+        override fun organisasjonsnummer() = hendelse.organisasjonsnummer()
+        override fun aktørId() = hendelse.aktørId()
+        override fun fødselsnummer() = hendelse.fødselsnummer()
+    }
+
+    internal class Revurdering(private val hendelse: ArbeidstakerHendelse) :
         ArbeidstakerHendelse(hendelse) {
         override fun organisasjonsnummer() = hendelse.organisasjonsnummer()
         override fun aktørId() = hendelse.aktørId()

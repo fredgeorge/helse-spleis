@@ -6,6 +6,7 @@ import no.nav.helse.person.TilstandType
 import no.nav.helse.testhelpers.februar
 import no.nav.helse.testhelpers.januar
 import no.nav.helse.utbetalingslinjer.Utbetaling
+import no.nav.helse.økonomi.Inntekt.Companion.daglig
 import no.nav.helse.økonomi.Prosentdel.Companion.prosent
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -74,31 +75,6 @@ internal class OverstyrerTidslinjeTest : AbstractEndToEndTest() {
         }
     }
 
-    @Test
-    fun `overstyrer siste utbetalte periode med bare ferie`() {
-        håndterSykmelding(Sykmeldingsperiode(3.januar, 26.januar, 100.prosent))
-        håndterInntektsmeldingMedValidering(1.vedtaksperiode, listOf(Periode(2.januar, 18.januar)), førsteFraværsdag = 2.januar)
-        håndterSøknadMedValidering(1.vedtaksperiode, Søknad.Søknadsperiode.Sykdom(3.januar, 26.januar, 100.prosent))
-        håndterVilkårsgrunnlag(1.vedtaksperiode, INNTEKT)
-        håndterYtelser(1.vedtaksperiode)   // No history
-        håndterSimulering(1.vedtaksperiode)
-        håndterUtbetalingsgodkjenning(1.vedtaksperiode, true)
-        håndterUtbetalt(1.vedtaksperiode)
-        håndterOverstyring((3.januar til 26.januar).map { manuellFeriedag(it) })
-        håndterYtelser(1.vedtaksperiode)
-        håndterSimulering(1.vedtaksperiode)
-        håndterUtbetalingsgodkjenning(1.vedtaksperiode)
-        assertEquals(Utbetaling.Utbetalt, inspektør.utbetalingtilstand(0))
-        assertEquals(Utbetaling.Sendt, inspektør.utbetalingtilstand(1))
-        assertEquals(inspektør.utbetaling(0).arbeidsgiverOppdrag().fagsystemId(), inspektør.utbetaling(1).arbeidsgiverOppdrag().fagsystemId())
-        inspektør.utbetaling(1).arbeidsgiverOppdrag().also { oppdrag ->
-            assertEquals(1, oppdrag.size)
-            assertEquals(18.januar, oppdrag[0].fom)
-            assertEquals(26.januar, oppdrag[0].tom)
-            assertEquals(18.januar, oppdrag[0].datoStatusFom())
-            assertTrue(oppdrag[0].erOpphør())
-        }
-    }
 
     @Test
     fun `overstyrer siste utbetalte periode i en forlengelse med bare ferie`() {
@@ -136,23 +112,9 @@ internal class OverstyrerTidslinjeTest : AbstractEndToEndTest() {
     }
 
     @Test
-    fun `får ikke overstyre utbetalt periode som har perioder etter seg`() {
-        håndterSykmelding(Sykmeldingsperiode(3.januar, 26.januar, 100.prosent))
-        håndterInntektsmeldingMedValidering(1.vedtaksperiode, listOf(Periode(2.januar, 18.januar)), førsteFraværsdag = 2.januar)
-        håndterSøknadMedValidering(1.vedtaksperiode, Søknad.Søknadsperiode.Sykdom(3.januar, 26.januar, 100.prosent))
-        håndterVilkårsgrunnlag(1.vedtaksperiode, INNTEKT)
-        håndterYtelser(1.vedtaksperiode)   // No history
-        håndterSimulering(1.vedtaksperiode)
-        håndterUtbetalingsgodkjenning(1.vedtaksperiode, true)
-        håndterUtbetalt(1.vedtaksperiode)
-        håndterSykmelding(Sykmeldingsperiode(1.februar, 28.februar, 100.prosent))
-        assertThrows<Aktivitetslogg.AktivitetException> { håndterOverstyring(listOf(manuellSykedag(26.januar, 80)))  }
-    }
-
-    @Test
     fun `vedtaksperiode rebehandler informasjon etter endring fra saksbehandler`() {
         håndterSykmelding(Sykmeldingsperiode(2.januar, 25.januar, 100.prosent))
-        håndterInntektsmeldingMedValidering(1.vedtaksperiode , listOf(Periode(2.januar, 17.januar)), førsteFraværsdag = 2.januar)
+        håndterInntektsmeldingMedValidering(1.vedtaksperiode, listOf(Periode(2.januar, 17.januar)), førsteFraværsdag = 2.januar)
         håndterSøknadMedValidering(1.vedtaksperiode, Søknad.Søknadsperiode.Sykdom(2.januar, 25.januar, 100.prosent))
         håndterVilkårsgrunnlag(1.vedtaksperiode, INNTEKT)
         håndterYtelser(1.vedtaksperiode)   // No history
