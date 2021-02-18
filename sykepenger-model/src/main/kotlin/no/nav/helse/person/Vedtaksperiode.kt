@@ -1470,91 +1470,81 @@ internal class Vedtaksperiode private constructor(
             vedtaksperiode: Vedtaksperiode,
             ytelser: Ytelser
         ) {
-            vedtaksperiode.beregnUtbetaling(person, ytelser, arbeidsgiver) { vedtaksperiode.tilstand(ytelser, TilInfotrygd) }
-        }
+            val historie = Historie(person, ytelser.utbetalingshistorikk())
+            vedtaksperiode.fjernArbeidsgiverperiodeVedOverlappMedIT(ytelser)
+            lateinit var skjæringstidspunkt: LocalDate
+            validation(ytelser) {
+                onError { vedtaksperiode.tilstand(ytelser, TilInfotrygd) }
+                valider("Mangler skjæringstidspunkt") {
+                    historie.skjæringstidspunkt(vedtaksperiode.periode)?.also { skjæringstidspunkt = it } != null
+                }
+                onSuccess {
+                    vedtaksperiode.skjæringstidspunktFraInfotrygd = skjæringstidspunkt
+                }
+                validerYtelser(
+                    historie.avgrensetPeriode(vedtaksperiode.organisasjonsnummer, vedtaksperiode.periode),
+                    ytelser,
+                    skjæringstidspunkt
+                )
+                onSuccess { ytelser.addInntekter(person) }
+                overlappende(vedtaksperiode.periode, ytelser.foreldrepenger())
+                overlappende(vedtaksperiode.periode, ytelser.pleiepenger())
+                overlappende(vedtaksperiode.periode, ytelser.omsorgspenger())
+                overlappende(vedtaksperiode.periode, ytelser.opplæringspenger())
+                overlappende(vedtaksperiode.periode, ytelser.institusjonsopphold())
+                onSuccess {
+                    when (val periodetype = historie.periodetype(vedtaksperiode.organisasjonsnummer, vedtaksperiode.periode)) {
+                        in listOf(OVERGANG_FRA_IT, INFOTRYGDFORLENGELSE) -> {
+                            vedtaksperiode.forlengelseFraInfotrygd = JA
 
-        override fun håndter(vedtaksperiode: Vedtaksperiode, hendelse: Revurdering) {
-            hendelse.info("Hopper tilbake i en ventetilstand fordi en betalt periode er gått til revurdering")
-            vedtaksperiode.tilstand(hendelse, AvventerUferdigForlengelse)
-        }
-    }
-
-    internal fun beregnUtbetaling(
-        person: Person,
-        ytelser: Ytelser,
-        arbeidsgiver: Arbeidsgiver,
-        onErrorBlock: () -> Unit
-    ) {
-        val historie = Historie(person, ytelser.utbetalingshistorikk())
-        fjernArbeidsgiverperiodeVedOverlappMedIT(ytelser)
-        lateinit var skjæringstidspunkt: LocalDate
-        validation(ytelser) {
-            onError(onErrorBlock)
-            valider("Mangler skjæringstidspunkt") {
-                historie.skjæringstidspunkt(periode)?.also { skjæringstidspunkt = it } != null
-            }
-            onSuccess {
-                skjæringstidspunktFraInfotrygd = skjæringstidspunkt
-            }
-            validerYtelser(
-                historie.avgrensetPeriode(organisasjonsnummer, periode),
-                ytelser,
-                skjæringstidspunkt
-            )
-            onSuccess { ytelser.addInntekter(person) }
-            overlappende(periode, ytelser.foreldrepenger())
-            overlappende(periode, ytelser.pleiepenger())
-            overlappende(periode, ytelser.omsorgspenger())
-            overlappende(periode, ytelser.opplæringspenger())
-            overlappende(periode, ytelser.institusjonsopphold())
-            onSuccess {
-                when (val periodetype = historie.periodetype(organisasjonsnummer, periode)) {
-                    in listOf(OVERGANG_FRA_IT, INFOTRYGDFORLENGELSE) -> {
-                        forlengelseFraInfotrygd = JA
-
-                        if (periodetype == OVERGANG_FRA_IT) {
-                            arbeidsgiver.addInntekt(ytelser)
-                            ytelser.info("Perioden er en direkte overgang fra periode med opphav i Infotrygd")
-                            if (ytelser.statslønn()) ytelser.warn("Det er lagt inn statslønn i Infotrygd, undersøk at utbetalingen blir riktig.")
+                            if (periodetype == OVERGANG_FRA_IT) {
+                                arbeidsgiver.addInntekt(ytelser)
+                                ytelser.info("Perioden er en direkte overgang fra periode med opphav i Infotrygd")
+                                if (ytelser.statslønn()) ytelser.warn("Det er lagt inn statslønn i Infotrygd, undersøk at utbetalingen blir riktig.")
+                            }
                         }
-                    }
-                    else -> {
-                        forlengelseFraInfotrygd = NEI
-                        arbeidsgiver.forrigeAvsluttaPeriodeMedVilkårsvurdering(this@Vedtaksperiode, historie)?.also { kopierManglende(it) }
-                        valider("""Vilkårsvurdering er ikke gjort, men perioden har utbetalinger?! ¯\_(ツ)_/¯""") {
-                            dataForVilkårsvurdering != null || erForlengelseAvAvsluttetUtenUtbetalingMedInntektsmelding()
+                        else -> {
+                            vedtaksperiode.forlengelseFraInfotrygd = NEI
+                            arbeidsgiver.forrigeAvsluttaPeriodeMedVilkårsvurdering(vedtaksperiode, historie)?.also { vedtaksperiode.kopierManglende(it) }
+                            valider("""Vilkårsvurdering er ikke gjort, men perioden har utbetalinger?! ¯\_(ツ)_/¯""") {
+                                vedtaksperiode.dataForVilkårsvurdering != null || vedtaksperiode.erForlengelseAvAvsluttetUtenUtbetalingMedInntektsmelding()
+                            }
                         }
                     }
                 }
-            }
-            harNødvendigInntekt(person, skjæringstidspunkt)
-            lateinit var engineForTimeline: ArbeidsgiverUtbetalinger
-            valider("Feil ved kalkulering av utbetalingstidslinjer") {
-                val utbetalingstidslinjer = try {
-                    person.utbetalingstidslinjer(periode, historie, ytelser)
-                } catch (e: IllegalArgumentException) {
-                    sikkerLogg.warn("Feilet i builder for vedtaksperiode ${id} - ${e.message}")
-                    return@valider false
+                harNødvendigInntekt(person, skjæringstidspunkt)
+                lateinit var engineForTimeline: ArbeidsgiverUtbetalinger
+                valider("Feil ved kalkulering av utbetalingstidslinjer") {
+                    val utbetalingstidslinjer = try {
+                        person.utbetalingstidslinjer(vedtaksperiode.periode, historie, ytelser)
+                    } catch (e: IllegalArgumentException) {
+                        sikkerLogg.warn("Feilet i builder for vedtaksperiode ${vedtaksperiode.id} - ${e.message}")
+                        return@valider false
+                    }
+                    engineForTimeline = ArbeidsgiverUtbetalinger(
+                        tidslinjer = utbetalingstidslinjer,
+                        personTidslinje = historie.utbetalingstidslinjeFraInfotrygd(vedtaksperiode.periode),
+                        periode = vedtaksperiode.periode,
+                        alder = Alder(vedtaksperiode.fødselsnummer),
+                        arbeidsgiverRegler = NormalArbeidstaker,
+                        aktivitetslogg = ytelser,
+                        organisasjonsnummer = vedtaksperiode.organisasjonsnummer,
+                        dødsdato = ytelser.dødsinfo().dødsdato
+                    ).also { engine ->
+                        engine.beregn()
+                    }
+                    !ytelser.hasErrorsOrWorse()
                 }
-                engineForTimeline = ArbeidsgiverUtbetalinger(
-                    tidslinjer = utbetalingstidslinjer,
-                        personTidslinje = historie.utbetalingstidslinjeFraInfotrygd(periode),
-                        periode = periode,
-                        alder = Alder(fødselsnummer),
-                    arbeidsgiverRegler = NormalArbeidstaker,
-                    aktivitetslogg = ytelser,
-                        organisasjonsnummer = organisasjonsnummer,
-                    dødsdato = ytelser.dødsinfo().dødsdato
-                ).also { engine ->
-                    engine.beregn()
-                }
-                !ytelser.hasErrorsOrWorse()
-            }
-            onSuccess {
-                forsøkUtbetaling(engineForTimeline.tidslinjeEngine, ytelser)
+                onSuccess {
+                    vedtaksperiode.forsøkUtbetaling(engineForTimeline.tidslinjeEngine, ytelser)
+                }}
+        }
+
+            override fun håndter(vedtaksperiode: Vedtaksperiode, hendelse: Revurdering) {
+                hendelse.info("Hopper tilbake i en ventetilstand fordi en betalt periode er gått til revurdering")
+                vedtaksperiode.tilstand(hendelse, AvventerUferdigForlengelse)
             }
         }
-    }
 
     private fun kopierManglende(other: Vedtaksperiode) {
         if (this.inntektsmeldingId == null)
