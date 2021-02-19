@@ -18,6 +18,12 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
     private var ikkeSykedager = 0
     private var fridager = 0
 
+    protected open fun nyArbeidsgiverperiode() {}
+    protected open fun arbeidsgiverperiodeOpphold() {}
+    protected open fun arbeidsgiverperiodeFri() {}
+    protected open fun arbeidsgiverperiodeFriFerdig() {}
+    protected open fun arbeidsgiverperiodeFerdig() {}
+
     protected abstract fun addForeldetDag(dagen: LocalDate, økonomi: Økonomi)
     protected abstract fun addArbeidsgiverdag(dato: LocalDate)
     protected abstract fun addNAVdag(dato: LocalDate, økonomi: Økonomi)
@@ -205,6 +211,7 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
             splitter.sykedagerIArbeidsgiverperiode = 0
             splitter.ikkeSykedager = 0
             splitter.fridager = 0
+            splitter.nyArbeidsgiverperiode()
         }
 
         override fun sykedagerIArbeidsgiverperioden(
@@ -213,6 +220,7 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
             økonomi: Økonomi
         ) {
             splitter.state(ArbeidsgiverperiodeSykedager)
+            splitter.nyArbeidsgiverperiode()
             splitter.ikkeSykedager = 0
             splitter.fridager = 0
             splitter.håndterArbeidsgiverdag(dagen)
@@ -233,6 +241,7 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
             økonomi: Økonomi
         ) {
             splitter.state(ArbeidsgiverperiodeSykedager)
+            splitter.nyArbeidsgiverperiode()
             splitter.ikkeSykedager = 0
             splitter.fridager = 0
             splitter.håndterArbeidsgiverdag(dagen)
@@ -309,6 +318,7 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
         override fun fridag(splitter: AbstractUtbetalingstidslinjeBuilder, dagen: LocalDate) {
             splitter.fridager = 0
             splitter.state(ArbeidsgiverperiodeFri)
+            splitter.arbeidsgiverperiodeFri()
             splitter.håndterFridag(dagen)
         }
     }
@@ -316,6 +326,8 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
     private object ArbeidsgiverperiodeFri : UtbetalingState {
         override fun fridag(splitter: AbstractUtbetalingstidslinjeBuilder, dagen: LocalDate) {
             splitter.håndterFridag(dagen)
+            if (splitter.arbeidsgiverRegler.arbeidsgiverperiodenGjennomført(splitter.sykedagerIArbeidsgiverperiode + splitter.fridager))
+                splitter.arbeidsgiverperiodeFriFerdig()
         }
 
         override fun egenmeldingsdagIArbeidsgiverperioden(splitter: AbstractUtbetalingstidslinjeBuilder, dagen: LocalDate) {
@@ -387,6 +399,7 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
     private object ArbeidsgiverperiodeOpphold : UtbetalingState {
         override fun entering(splitter: AbstractUtbetalingstidslinjeBuilder) {
             splitter.ikkeSykedager = 1
+            splitter.arbeidsgiverperiodeOpphold()
         }
 
         override fun arbeidsdagerIOppholdsdager(splitter: AbstractUtbetalingstidslinjeBuilder, dagen: LocalDate) {
@@ -437,12 +450,14 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
             økonomi: Økonomi
         ) {
             splitter.state(UtbetalingSykedager)
+            splitter.arbeidsgiverperiodeFerdig()
             splitter.addNAVHelgedag(dagen, økonomi)
         }
     }
 
     private object UtbetalingSykedager : UtbetalingState {
         override fun entering(splitter: AbstractUtbetalingstidslinjeBuilder) {
+            splitter.arbeidsgiverperiodeFerdig()
             splitter.ikkeSykedager = 0
         }
 
