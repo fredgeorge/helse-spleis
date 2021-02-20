@@ -1,6 +1,7 @@
 package no.nav.helse.utbetalingstidslinje
 
 import no.nav.helse.hendelser.til
+import no.nav.helse.sykdomstidslinje.erRettFør
 import java.time.LocalDate
 
 /**
@@ -12,11 +13,12 @@ internal class Arbeidsgiverperiode(førsteDag: LocalDate): Iterable<LocalDate> {
     )
     private val forrige get() = perioder.last()
 
-    internal fun nyPeriode(dato: LocalDate) {
+    internal fun nyDag(dato: LocalDate) {
+        if (forrige.start.erRettFør(dato)) return utvidSiste(dato)
         perioder.add(dato til dato)
     }
 
-    internal fun nyDag(dato: LocalDate) {
+    internal fun utvidSiste(dato: LocalDate) {
         perioder[perioder.size - 1] = forrige.oppdaterTom(dato)
     }
 

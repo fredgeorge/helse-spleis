@@ -11,7 +11,7 @@ internal class ArbeidsgiverperiodeBuilder(
 ) : AbstractUtbetalingstidslinjeBuilder(forlengelseStrategy, arbeidsgiverRegler) {
 
     private val arbeidsgiverperioder = mutableListOf<Arbeidsgiverperiode>()
-    private val fridager = mutableListOf<LocalDate>()
+    private var sisteFridag: LocalDate? = null
     private var tilstand: Tilstand = IngenArbeidsgiverperiode
 
     internal fun result(sykdomstidslinje: Sykdomstidslinje): List<Arbeidsgiverperiode> {
@@ -19,8 +19,9 @@ internal class ArbeidsgiverperiodeBuilder(
         return arbeidsgiverperioder
     }
 
-    override fun nyArbeidsgiverperiode() {
+    override fun reset() {
         tilstand = IngenArbeidsgiverperiode
+        sisteFridag = null
     }
 
     override fun arbeidsgiverperiodeFri() {
@@ -28,18 +29,16 @@ internal class ArbeidsgiverperiodeBuilder(
     }
 
     override fun arbeidsgiverperiodeOpphold() {
-        tilstand = ArbeidsgiverperiodeOpphold
-        fridager.clear()
+        tilstand = HarArbeidsgiverperiode
     }
 
-    override fun arbeidsgiverperiodeFriFerdig() {
-        tilstand = ArbeidsgiverperiodeFriFerdig
+    override fun arbeidsgiverperiodeMuligGjennomførtMedFri() {
+        tilstand = ArbeidsgiverperiodeMuligGjennomførtMedFri
     }
 
-    override fun arbeidsgiverperiodeFerdig() {
-        fridager.forEach { arbeidsgiverperioder.last().nyDag(it) }
-        fridager.clear()
-        tilstand = IngenArbeidsgiverperiode
+    override fun arbeidsgiverperiodeGjennomført() {
+        sisteFridag?.also { arbeidsgiverperioder.last().utvidSiste(it) }
+        reset()
     }
 
     override fun addArbeidsgiverdag(dato: LocalDate) {
@@ -62,29 +61,22 @@ internal class ArbeidsgiverperiodeBuilder(
     }
     private object IngenArbeidsgiverperiode : Tilstand {
         override fun arbeidsgiverperiode(builder: ArbeidsgiverperiodeBuilder, dato: LocalDate) {
-            builder.tilstand = IArbeidsgiverperiode
+            builder.tilstand = HarArbeidsgiverperiode
             builder.arbeidsgiverperioder.add(Arbeidsgiverperiode(dato))
-        }
-    }
-    private object ArbeidsgiverperiodeOpphold : Tilstand {
-        override fun arbeidsgiverperiode(builder: ArbeidsgiverperiodeBuilder, dato: LocalDate) {
-            builder.tilstand = IArbeidsgiverperiode
-            builder.arbeidsgiverperioder.last().nyPeriode(dato)
         }
     }
     private object ArbeidsgiverperiodeFri : Tilstand {
         override fun fridag(builder: ArbeidsgiverperiodeBuilder, dato: LocalDate) {
-            builder.fridager.add(dato)
+            builder.sisteFridag = dato
         }
 
         override fun arbeidsgiverperiode(builder: ArbeidsgiverperiodeBuilder, dato: LocalDate) {
-            builder.tilstand = IArbeidsgiverperiode
-            builder.fridager.forEach { builder.addArbeidsdag(it) }
-            builder.fridager.clear()
+            builder.tilstand = HarArbeidsgiverperiode
+            builder.arbeidsgiverperioder.last().utvidSiste(dato)
         }
     }
-    private object ArbeidsgiverperiodeFriFerdig : Tilstand {}
-    private object IArbeidsgiverperiode : Tilstand {
+    private object ArbeidsgiverperiodeMuligGjennomførtMedFri : Tilstand {}
+    private object HarArbeidsgiverperiode : Tilstand {
         override fun arbeidsgiverperiode(builder: ArbeidsgiverperiodeBuilder, dato: LocalDate) {
             builder.arbeidsgiverperioder.last().nyDag(dato)
         }
