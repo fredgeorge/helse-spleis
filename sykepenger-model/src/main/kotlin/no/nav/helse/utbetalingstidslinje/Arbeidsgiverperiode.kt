@@ -7,20 +7,24 @@ import java.time.LocalDate
 /**
  *  Forstår opprettelsen av en Utbetalingstidslinje
  */
-internal class Arbeidsgiverperiode(førsteDag: LocalDate): Iterable<LocalDate> {
+internal class Arbeidsgiverperiode(førsteDag: LocalDate): Iterable<LocalDate>, Comparable<LocalDate> {
     private val perioder = mutableListOf(
         førsteDag til førsteDag
     )
+
     private val forrige get() = perioder.last()
 
     internal fun nyDag(dato: LocalDate) {
-        if (forrige.start.erRettFør(dato)) return utvidSiste(dato)
+        if (forrige.endInclusive.erRettFør(dato)) return utvidSiste(dato)
         perioder.add(dato til dato)
     }
 
     internal fun utvidSiste(dato: LocalDate) {
         perioder[perioder.size - 1] = forrige.oppdaterTom(dato)
     }
+
+    override fun compareTo(other: LocalDate) =
+        perioder.first().start.compareTo(other)
 
     override fun iterator(): Iterator<LocalDate> {
         return object : Iterator<LocalDate> {
@@ -39,5 +43,12 @@ internal class Arbeidsgiverperiode(førsteDag: LocalDate): Iterable<LocalDate> {
                 return current?.next() ?: throw NoSuchElementException()
             }
         }
+    }
+
+    internal companion object {
+        internal fun nyArbeidsgiverperiodeEtter(perioder: List<Arbeidsgiverperiode>, dato: LocalDate) =
+            perioder.any { it > dato }
+        internal fun nyArbeidsgiverperiodeMellom(perioder: List<Arbeidsgiverperiode>, etter: LocalDate, før: LocalDate) =
+            perioder.any { it > etter && it <= før }
     }
 }

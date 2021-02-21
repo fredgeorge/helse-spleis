@@ -80,7 +80,7 @@ internal class Historie() {
             forlengelseStrategy = { dagen -> erArbeidsgiverperiodenGjennomførtFør(organisasjonsnummer, dagen) },
             arbeidsgiverRegler = arbeidsgiverRegler
         )
-        return byggUtbetalingstidslinje(organisasjonsnummer, periode, builder::result)
+        return byggUtbetalingstidslinje(organisasjonsnummer, periode) { builder.build(it); builder.result() }
     }
 
     private fun byggUtbetalingstidslinje(organisasjonsnummer: String, periode: Periode, builder: (Sykdomstidslinje) -> Utbetalingstidslinje) =

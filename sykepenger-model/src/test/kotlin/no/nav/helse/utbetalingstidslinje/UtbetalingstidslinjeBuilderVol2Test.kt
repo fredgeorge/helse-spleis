@@ -768,7 +768,7 @@ internal class UtbetalingstidslinjeBuilderVol2Test {
             skjæringstidspunkter = skjæringstidspunkter,
             inntektshistorikk = inntektshistorikk,
             forlengelseStrategy = forlengelseStrategy
-        ).result(this)
+        ).also { it.build(this) }.result()
     }
 
     private class TestTidslinjeInspektør(tidslinje: Utbetalingstidslinje) : UtbetalingsdagVisitor {

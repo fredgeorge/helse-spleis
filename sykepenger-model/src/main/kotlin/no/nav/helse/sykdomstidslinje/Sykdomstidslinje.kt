@@ -2,7 +2,6 @@ package no.nav.helse.sykdomstidslinje
 
 import no.nav.helse.hendelser.Periode
 import no.nav.helse.hendelser.contains
-import no.nav.helse.hendelser.til
 import no.nav.helse.person.IAktivitetslogg
 import no.nav.helse.person.SykdomstidslinjeVisitor
 import no.nav.helse.sykdomstidslinje.Dag.*
@@ -11,11 +10,12 @@ import no.nav.helse.sykdomstidslinje.Dag.Companion.sammenhengendeSykdom
 import no.nav.helse.sykdomstidslinje.SykdomstidslinjeHendelse.Hendelseskilde
 import no.nav.helse.sykdomstidslinje.SykdomstidslinjeHendelse.Hendelseskilde.Companion.INGEN
 import no.nav.helse.utbetalingstidslinje.ArbeidsgiverRegler
+import no.nav.helse.utbetalingstidslinje.Arbeidsgiverperiode
+import no.nav.helse.utbetalingstidslinje.ArbeidsgiverperiodeBuilder
 import no.nav.helse.økonomi.Prosentdel
 import no.nav.helse.økonomi.Økonomi
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit.DAYS
 import java.util.*
 import java.util.stream.Collectors.toMap
 import kotlin.NoSuchElementException
@@ -158,22 +158,16 @@ internal class Sykdomstidslinje private constructor(
 
     internal fun harNyArbeidsgiverperiodeFør(regler: ArbeidsgiverRegler, nesteSykedag: LocalDate): Boolean {
         val forrigeSykedag = forrigeSykedagFør(nesteSykedag) ?: return false
-        return regler.burdeStarteNyArbeidsgiverperiode(avstandMellomSykedager(forrigeSykedag, nesteSykedag))
+        val builder = ArbeidsgiverperiodeBuilder(arbeidsgiverRegler = regler)
+        builder.build(this)
+        return Arbeidsgiverperiode.nyArbeidsgiverperiodeMellom(builder.result(), forrigeSykedag, nesteSykedag)
     }
 
-    internal fun harNyArbeidsgiverperiodeEtter(regler: ArbeidsgiverRegler, fraOgMed: LocalDate) =
-        fraOgMed(fraOgMed)
-            .kunSykedager()
-            .zipWithNext()
-            .any { (forrigeSykedag, nesteSykedag) ->
-                regler.burdeStarteNyArbeidsgiverperiode(forrigeSykedag.plusDays(1).until(nesteSykedag, DAYS).toInt())
-            }
-
-    private fun avstandMellomSykedager(forrigeSykedag: LocalDate, nesteSykedag: LocalDate) =
-        subset(forrigeSykedag.plusDays(1) til nesteSykedag.minusDays(1))
-            .periode
-            ?.dropWhile { this[it] is Feriedag || (this[it] is UkjentDag && it.erHelg()) }
-            ?.count() ?: Int.MAX_VALUE
+    internal fun harNyArbeidsgiverperiodeEtter(regler: ArbeidsgiverRegler, fraOgMed: LocalDate): Boolean {
+        val builder = ArbeidsgiverperiodeBuilder(arbeidsgiverRegler = regler)
+        builder.build(this)
+        return Arbeidsgiverperiode.nyArbeidsgiverperiodeEtter(builder.result(), fraOgMed)
+    }
 
     fun starterFør(other: Sykdomstidslinje): Boolean {
         requireNotNull(periode)
@@ -185,11 +179,6 @@ internal class Sykdomstidslinje private constructor(
     internal fun erSisteDagArbeidsdag() = this.dager.keys.lastOrNull()?.let(::erArbeidsdag) ?: true
 
     internal fun harSykedager() = any { it is Sykedag || it is SykHelgedag || it is ForeldetSykedag }
-
-    private fun kunSykedager() =
-        this.dager
-            .filterValues { erEnSykedag(it) }
-            .map { it.key }
 
     private fun sisteOppholdsdag() = periode?.lastOrNull { erOppholdsdag(it) }
 

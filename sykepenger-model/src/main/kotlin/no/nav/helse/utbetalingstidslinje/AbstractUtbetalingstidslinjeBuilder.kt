@@ -2,6 +2,7 @@ package no.nav.helse.utbetalingstidslinje
 
 import no.nav.helse.person.SykdomstidslinjeVisitor
 import no.nav.helse.sykdomstidslinje.Dag
+import no.nav.helse.sykdomstidslinje.Sykdomstidslinje
 import no.nav.helse.sykdomstidslinje.SykdomstidslinjeHendelse
 import no.nav.helse.sykdomstidslinje.erHelg
 import no.nav.helse.utbetalingstidslinje.ArbeidsgiverRegler.Companion.NormalArbeidstaker
@@ -17,6 +18,10 @@ internal abstract class AbstractUtbetalingstidslinjeBuilder protected constructo
     private var sykedagerIArbeidsgiverperiode = 0
     private var ikkeSykedager = 0
     private var fridager = 0
+
+    internal fun build(sykdomstidslinje: Sykdomstidslinje) {
+        sykdomstidslinje.accept(this)
+    }
 
     protected open fun reset() {}
     protected open fun arbeidsgiverperiodeOpphold() {}

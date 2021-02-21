@@ -399,7 +399,7 @@ internal class ArbeidsgiverperiodeBuilderTest {
 
     private lateinit var arbeidsgiverperioder: List<Arbeidsgiverperiode>
     private fun Sykdomstidslinje.arbeidsgiverperioder(forlengelseStrategy: (LocalDate) -> Boolean = { false }) =
-        ArbeidsgiverperiodeBuilder(forlengelseStrategy = forlengelseStrategy).result(this).also {
+        ArbeidsgiverperiodeBuilder(forlengelseStrategy = forlengelseStrategy).also { it.build(this) }.result().also {
             arbeidsgiverperioder = it
         }
 }

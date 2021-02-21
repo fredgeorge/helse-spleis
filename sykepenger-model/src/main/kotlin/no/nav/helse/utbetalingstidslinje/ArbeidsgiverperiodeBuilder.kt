@@ -1,6 +1,5 @@
 package no.nav.helse.utbetalingstidslinje
 
-import no.nav.helse.sykdomstidslinje.Sykdomstidslinje
 import no.nav.helse.utbetalingstidslinje.ArbeidsgiverRegler.Companion.NormalArbeidstaker
 import no.nav.helse.økonomi.Økonomi
 import java.time.LocalDate
@@ -14,8 +13,7 @@ internal class ArbeidsgiverperiodeBuilder(
     private var sisteFridag: LocalDate? = null
     private var tilstand: Tilstand = IngenArbeidsgiverperiode
 
-    internal fun result(sykdomstidslinje: Sykdomstidslinje): List<Arbeidsgiverperiode> {
-        sykdomstidslinje.accept(this)
+    internal fun result(): List<Arbeidsgiverperiode> {
         return arbeidsgiverperioder
     }
 

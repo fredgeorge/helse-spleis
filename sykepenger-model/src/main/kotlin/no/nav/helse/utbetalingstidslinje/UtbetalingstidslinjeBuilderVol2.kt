@@ -1,7 +1,6 @@
 package no.nav.helse.utbetalingstidslinje
 
 import no.nav.helse.person.InntektshistorikkVol2
-import no.nav.helse.sykdomstidslinje.Sykdomstidslinje
 import no.nav.helse.utbetalingstidslinje.ArbeidsgiverRegler.Companion.NormalArbeidstaker
 import no.nav.helse.økonomi.Inntekt.Companion.INGEN
 import no.nav.helse.økonomi.Økonomi
@@ -37,8 +36,7 @@ internal class UtbetalingstidslinjeBuilderVol2 internal constructor(
             ?.let { (skjæringstidspunkt, inntekt) -> inntekt(inntekt, inntekt.dekningsgrunnlag(arbeidsgiverRegler), skjæringstidspunkt) }
             ?: inntekt(INGEN, skjæringstidspunkt = dato)
 
-    internal fun result(sykdomstidslinje: Sykdomstidslinje): Utbetalingstidslinje {
-        sykdomstidslinje.accept(this)
+    internal fun result(): Utbetalingstidslinje {
         return tidslinje
     }
 
