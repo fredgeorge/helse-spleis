@@ -922,7 +922,6 @@ internal class ForlengelseFraInfotrygdTest : AbstractEndToEndTest() {
     }
 
     @Test
-    @Disabled
     fun `Forlengelse oppdager ferie fra infotrygd`() {
         /* Vi ser at hvis vi oppdager ferie i infotrygd ender vi opp med ukjente dager i utbetalingstidslinja.
            Dette fører til en annullering i oppdraget. */
@@ -943,6 +942,6 @@ internal class ForlengelseFraInfotrygdTest : AbstractEndToEndTest() {
         håndterSøknadMedValidering(id, Sykdom(24.februar, 15.mars, 100.prosent))
         håndterYtelser(id, historikk, Utbetalingshistorikk.Infotrygdperiode.Ferie(16.februar, 17.februar), inntektshistorikk = inntektshistorikk)
         håndterSimulering(id)
-        assertEquals(1, inspektør.arbeidsgiverOppdrag[1].size)
+        assertEquals(2, inspektør.arbeidsgiverOppdrag[1].linjerUtenOpphør().size)
     }
 }

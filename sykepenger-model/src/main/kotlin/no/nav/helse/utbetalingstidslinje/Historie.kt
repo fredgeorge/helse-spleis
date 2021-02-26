@@ -69,8 +69,18 @@ internal class Historie() {
 
     private fun byggUtbetalingstidslinje(organisasjonsnummer: String, periode: Periode, builder: (Sykdomstidslinje) -> Utbetalingstidslinje) =
         builder(sykdomstidslinje(organisasjonsnummer).fremTilOgMed(periode.endInclusive))
-            .minus(infotrygdbøtte.utbetalingstidslinje(organisasjonsnummer))
-            .let { it.gjøreKortere(minOf(it.førsteSykepengedag() ?: LocalDate.MAX, spleisbøtte.tidligsteDato(organisasjonsnummer))) }
+            .let { fjernInfotrygd(it, organisasjonsnummer) }
+
+    private fun fjernInfotrygd(utbetalingstidlinje: Utbetalingstidslinje, organisasjonsnummer: String): Utbetalingstidslinje {
+        return utbetalingstidlinje.plus(infotrygdbøtte.utbetalingstidslinje(organisasjonsnummer)) { spleisDag: Utbetalingsdag, infotrygdDag: Utbetalingsdag ->
+            when {
+                infotrygdDag is Fridag -> spleisDag
+                infotrygdDag !is Utbetalingsdag.UkjentDag && !infotrygdDag.dato.erHelg() -> UkjentDag(spleisDag.dato, spleisDag.økonomi)
+                infotrygdDag !is Fridag && infotrygdDag.dato.erHelg() -> UkjentDag(spleisDag.dato, spleisDag.økonomi)
+                else -> spleisDag
+            }
+        }.let { it.gjøreKortere(minOf(it.førsteSykepengedag() ?: LocalDate.MAX, spleisbøtte.tidligsteDato(organisasjonsnummer))) }
+    }
 
     internal fun erForlengelse(orgnr: String, periode: Periode) =
         periodetype(orgnr, periode) != FØRSTEGANGSBEHANDLING

@@ -67,7 +67,7 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `minus`() {
-        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP, 2.HELG, 5.NAV, 2.HELG).minus(tidslinjeOf(10.NAV))
+        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP, 2.HELG, 5.NAV, 2.HELG).plussInfotrygd(tidslinjeOf(10.NAV))
         assertEquals(11, tidslinje.size)
         assertEquals(11.januar, tidslinje.førsteDato())
         assertTrue(tidslinje[1.januar] is UkjentDag)
@@ -78,7 +78,7 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `ulike dagtyper`() {
-        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP, 2.HELG, 5.NAV, 2.HELG).minus(tidslinjeOf(1.AVV, 4.NAV))
+        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP, 2.HELG, 5.NAV, 2.HELG).plussInfotrygd(tidslinjeOf(1.AVV, 4.NAV))
         assertEquals(16, tidslinje.size)
         assertEquals(6.januar, tidslinje.førsteDato())
         assertEquals(21.januar, tidslinje.sisteDato())
@@ -86,7 +86,7 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `fjerne dager midt i`() {
-        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP, 2.HELG, 5.NAV, 2.HELG).minus(tidslinjeOf(5.NAV, startDato = 8.januar))
+        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP, 2.HELG, 5.NAV, 2.HELG).plussInfotrygd(tidslinjeOf(5.NAV, startDato = 8.januar))
         assertEquals(21, tidslinje.size)
         assertEquals(1.januar, tidslinje.førsteDato())
         assertTrue(tidslinje[7.januar] is NavHelgDag)
@@ -98,7 +98,7 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `fjerne dager på slutten`() {
-        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP).minus(tidslinjeOf(5.NAV, startDato = 8.januar))
+        val tidslinje = tidslinjeOf(5.NAV, 2.HELG, 5.AP).plussInfotrygd(tidslinjeOf(5.NAV, startDato = 8.januar))
         assertEquals(12, tidslinje.size)
         assertEquals(1.januar, tidslinje.førsteDato())
         assertTrue(tidslinje[8.januar] is UkjentDag)
@@ -108,7 +108,7 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `tidslinje med bare feriedager minus annen senere tidslinje lager ukjente dager for den senere tidslinjen`() {
-        val tidslinje = tidslinjeOf(12.FRIv2).minus(tidslinjeOf(5.NAVv2, startDato = 8.januar))
+        val tidslinje = tidslinjeOf(12.FRIv2).plussInfotrygd(tidslinjeOf(5.NAVv2, startDato = 8.januar))
         assertEquals(12, tidslinje.size)
         undersøke(tidslinje)
         assertEquals(7, inspektør.fridagTeller)
@@ -117,13 +117,13 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `tidslinje som overlappes helt av en tidslinje som trekkes fra resulterer i tom tidslinje`() {
-        val tidslinje = tidslinjeOf(5.NAVv2, startDato = 8.januar) - tidslinjeOf(7.FRIv2, 5.NAVv2)
+        val tidslinje = tidslinjeOf(5.NAVv2, startDato = 8.januar).plussInfotrygd(tidslinjeOf(7.FRIv2, 5.NAVv2))
         assertEquals(0, tidslinje.size)
     }
 
     @Test
     fun `tidslinje med feriedager etter en tidslinje som trekkes fra resulterer i en tidslinje med bare fridager (første helg med fridager fjernes også)`() {
-        val tidslinje = tidslinjeOf(5.NAVv2, 7.FRIv2, startDato = 8.januar) - tidslinjeOf(7.FRIv2, 5.NAVv2)
+        val tidslinje = tidslinjeOf(5.NAVv2, 7.FRIv2, startDato = 8.januar).plussInfotrygd(tidslinjeOf(7.FRIv2, 5.NAVv2))
         assertEquals(5, tidslinje.size)
         undersøke(tidslinje)
         assertEquals(5, inspektør.fridagTeller)
@@ -131,7 +131,7 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `tidslinje med NAVdager etter en tidslinje som trekkes fra resulterer i en tidslinje med bare de siste NAVdagene (første helg med NAVdager beholdes)`() {
-        val tidslinje = tidslinjeOf(5.NAVv2, 7.NAVv2, startDato = 8.januar) - tidslinjeOf(7.FRIv2, 5.NAVv2)
+        val tidslinje = tidslinjeOf(5.NAVv2, 7.NAVv2, startDato = 8.januar).plussInfotrygd(tidslinjeOf(7.FRIv2, 5.NAVv2))
         assertEquals(7, tidslinje.size)
         undersøke(tidslinje)
         assertEquals(2, inspektør.navHelgDagTeller)
@@ -140,24 +140,24 @@ internal class UtbetalingstidslinjeTest {
 
     @Test
     fun `tidslinje med ekstra NAVdager etter en tidslinje som trekkes fra resulterer i en tidslinje med bare de siste NAVdagene`() {
-        val tidslinje = tidslinjeOf(7.NAVv2, 7.FRIv2, 7.NAVv2) - tidslinjeOf(7.NAVv2, 7.FRIv2)
-        assertEquals(7, tidslinje.size)
+        val tidslinje = tidslinjeOf(7.NAVv2, 7.FRIv2, 7.NAVv2).plussInfotrygd(tidslinjeOf(7.NAVv2, 7.FRIv2))
+        assertEquals(14, tidslinje.size)
         undersøke(tidslinje)
         assertEquals(5, inspektør.navDagTeller)
         assertEquals(2, inspektør.navHelgDagTeller)
     }
 
     @Test
-    fun `tidslinje med ekstra fridager etter en tidslinje som trekkes fra resulterer i en tidslinje med bare de siste fridagene (siste helg med fridager beholdes)`() {
-        val tidslinje = tidslinjeOf(7.NAVv2, 7.FRIv2, 7.FRIv2) - tidslinjeOf(7.NAVv2, 7.FRIv2)
-        assertEquals(7, tidslinje.size)
+    fun `tidslinje med ekstra fridager slås sammen med en tidslinje fra infotrygd`() {
+        val tidslinje = tidslinjeOf(7.NAVv2, 7.FRIv2, 7.FRIv2).plussInfotrygd(tidslinjeOf(7.NAVv2, 7.FRIv2))
+        assertEquals(14, tidslinje.size)
         undersøke(tidslinje)
         assertEquals(7, inspektør.fridagTeller)
     }
 
     @Test
     fun `en tidslinje som blir trukket fra en identisk tidslinje resulterer i tom tidslinje`() {
-        val tidslinje = tidslinjeOf(5.NAVv2).minus(tidslinjeOf(5.NAVv2))
+        val tidslinje = tidslinjeOf(5.NAVv2).plussInfotrygd(tidslinjeOf(5.NAVv2))
         assertEquals(0, tidslinje.size)
     }
 
